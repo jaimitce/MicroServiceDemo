@@ -4,3 +4,6 @@
 [submodule "PlatformService"]
 	path = PlatformService
 	url = https://github.com/jaimitce/PlatformService.git
+[submodule "KubernetesForDotNetMS"]
+	path = KubernetesForDotNetMS
+	url = https://github.com/jaimitce/KubernetesForDotNetMS.git
