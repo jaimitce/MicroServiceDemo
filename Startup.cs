@@ -14,32 +14,52 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using PlatformService.Data;
 using Microsoft.EntityFrameworkCore;
+using PlatformService.SyncDataServices.Http;
 
 namespace PlatformService
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public IConfiguration Configuration { get; }
+        private readonly IWebHostEnvironment _env;
+
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            _env = env; 
         }
-
-        public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            /*
-             * Add this line for adding DbContext object as dependency injection,
-             */
-            services.AddDbContext<AppDbContext>(opt =>
-                                                opt.UseInMemoryDatabase("InMem"));
+            if (_env.IsProduction())
+            {
+                Console.WriteLine("--> Production db used");
+                /*
+                 * Add this line for adding DbContext object as dependency injection,
+                 */
+                services.AddDbContext<AppDbContext>(opt => 
+                                                    opt.UseSqlServer(Configuration.GetConnectionString("PlatformsConn")));
+            }
+            else
+            {
+                Console.WriteLine("--> In memory db used");
+                /*
+                 * Add this line for adding DbContext object as dependency injection,
+                 */
+                services.AddDbContext<AppDbContext>(opt =>
+                                                    opt.UseInMemoryDatabase("InMem"));
+            }
 
             /*
              * Add this line for enabling getting the dependency injection object.
              */
             services.AddScoped<IPlatformRepo, PlatformRepo>();
-            
+
+            services.AddHttpClient<ICommandDataClient, HttpCommandDataClient>();
+
+            //services.AddSingleton<ICommandDataClient, HttpCommandDataClient>();
+
             services.AddControllers();
 
             /*
@@ -53,6 +73,8 @@ namespace PlatformService
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "PlatformService", Version = "v1" });
             });
+
+            Console.WriteLine($"--> Command Service endpoint {Configuration["CommandService"]}");
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -65,7 +87,7 @@ namespace PlatformService
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "PlatformService v1"));
             }
 
-            app.UseHttpsRedirection();
+            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
@@ -76,7 +98,7 @@ namespace PlatformService
                 endpoints.MapControllers();
             });
 
-            PrepDb.PrepPopulation(app);
+           PrepDb.PrepPopulation(app, env.IsProduction());
         }
     }
 }

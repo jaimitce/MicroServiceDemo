@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using PlatformService.Data;
 using PlatformService.Dtos;
 using PlatformService.Models;
+using PlatformService.SyncDataServices.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,15 +21,19 @@ namespace PlatformService.Controllers
     {
         private readonly IPlatformRepo _repositery;
         private readonly IMapper _mapper;
+        private readonly ICommandDataClient _commandDataClient;
 
         /*
          * This 2 argument repositery and mapper will be added by
          * dependecy injection.
          */
-        public PlatformController(IPlatformRepo repositery, IMapper mapper)
+        public PlatformController(  IPlatformRepo repositery, 
+                                    IMapper mapper,
+                                    ICommandDataClient commandDataClient)
         {
             _repositery = repositery;
             _mapper = mapper;
+            _commandDataClient = commandDataClient;
         }
 
         [HttpGet]
@@ -61,7 +66,7 @@ namespace PlatformService.Controllers
         }
 
         [HttpPost]
-        public ActionResult<PlatformReadDto> CreatePlatform(PlatformCreateDto platformCreateDto)
+        public async Task<ActionResult<PlatformReadDto>> CreatePlatform(PlatformCreateDto platformCreateDto)
         {
             Console.WriteLine("--> Creating platform..");
 
@@ -70,6 +75,16 @@ namespace PlatformService.Controllers
             _repositery.SaveChanges(); // Don't forget to add this line.
 
             var platformReadDto = _mapper.Map<PlatformReadDto>(platformModel);
+
+            try
+            {
+                await _commandDataClient.SendPlatformToCommand(platformReadDto);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"[EXCPETION] - {ex}");
+            }
+            
 
             /*
              * In post method after successful creation of new resource we have to 
